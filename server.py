@@ -2,16 +2,29 @@
 import json
 import datetime
 import sys
+import os
+from io import StringIO
 from typing import Optional
 
-from fast_flights import FlightQuery, Passengers, create_query, get_flights
+from fast_flights import FlightQuery, Passengers, create_query, get_flights as _get_flights
 from mcp.server.fastmcp import FastMCP
 
 mcp = FastMCP("google-flights-cheapest-finder")
 
 
+def get_flights_quiet(query):
+    """Calls get_flights while suppressing stdout to avoid corrupting MCP stdio transport."""
+    old_stdout = sys.stdout
+    sys.stdout = open(os.devnull, "w")
+    try:
+        result = _get_flights(query)
+        return result
+    finally:
+        sys.stdout.close()
+        sys.stdout = old_stdout
+
+
 def single_flight_to_dict(sf):
-    """Converts a SingleFlight segment to a dictionary."""
     return {
         "from_airport": {"name": sf.from_airport.name, "code": sf.from_airport.code},
         "to_airport": {"name": sf.to_airport.name, "code": sf.to_airport.code},
@@ -23,7 +36,6 @@ def single_flight_to_dict(sf):
 
 
 def format_datetime(sdt):
-    """Formats a SimpleDatetime as a readable string."""
     date_part = f"{sdt.date[0]:04d}-{sdt.date[1]:02d}-{sdt.date[2]:02d}"
     minutes = sdt.time[1] if len(sdt.time) > 1 else 0
     time_part = f"{sdt.time[0]:02d}:{minutes:02d}"
@@ -31,7 +43,6 @@ def format_datetime(sdt):
 
 
 def flights_to_dict(flights_obj):
-    """Converts a Flights object to a dictionary."""
     result = {
         "airlines": flights_obj.airlines,
         "price": flights_obj.price,
@@ -45,7 +56,6 @@ def flights_to_dict(flights_obj):
 
 
 def map_seat_type(seat_type: str) -> str:
-    """Maps common seat type names to fast_flights expected values."""
     mapping = {
         "economy": "economy",
         "business": "business",
@@ -88,7 +98,7 @@ async def get_flights_on_date(
             seat=map_seat_type(seat_type),
             passengers=Passengers(adults=adults),
         )
-        result = get_flights(query)
+        result = get_flights_quiet(query)
 
         if result:
             flights_list = list(result)
@@ -158,7 +168,7 @@ async def get_round_trip_flights(
             seat=map_seat_type(seat_type),
             passengers=Passengers(adults=adults),
         )
-        result = get_flights(query)
+        result = get_flights_quiet(query)
 
         if result:
             flights_list = list(result)
@@ -245,20 +255,20 @@ async def find_all_flights_in_range(
 
     date_pairs_to_check = []
     for i, depart_date in enumerate(date_list):
-        for return_date in date_list[i:]:
-            stay_duration = (return_date - depart_date).days
+        for ret_date in date_list[i:]:
+            stay_duration = (ret_date - depart_date).days
             valid_stay = True
             if min_stay_days is not None and stay_duration < min_stay_days:
                 valid_stay = False
             if max_stay_days is not None and stay_duration > max_stay_days:
                 valid_stay = False
             if valid_stay:
-                date_pairs_to_check.append((depart_date, return_date))
+                date_pairs_to_check.append((depart_date, ret_date))
 
     total_combinations = len(date_pairs_to_check)
     print(f"MCP Tool: Checking {total_combinations} valid date combinations in range...", file=sys.stderr)
 
-    for count, (depart_date, return_date) in enumerate(date_pairs_to_check, 1):
+    for count, (depart_date, ret_date) in enumerate(date_pairs_to_check, 1):
         if count % 10 == 0:
             print(f"MCP Tool Progress: {count}/{total_combinations}", file=sys.stderr)
 
@@ -266,13 +276,13 @@ async def find_all_flights_in_range(
             query = create_query(
                 flights=[
                     FlightQuery(date=depart_date.strftime("%Y-%m-%d"), from_airport=origin, to_airport=destination),
-                    FlightQuery(date=return_date.strftime("%Y-%m-%d"), from_airport=destination, to_airport=origin),
+                    FlightQuery(date=ret_date.strftime("%Y-%m-%d"), from_airport=destination, to_airport=origin),
                 ],
                 trip="round-trip",
                 seat=map_seat_type(seat_type),
                 passengers=Passengers(adults=adults),
             )
-            result = get_flights(query)
+            result = get_flights_quiet(query)
 
             if result:
                 flights_list = list(result)
@@ -281,19 +291,19 @@ async def find_all_flights_in_range(
                         cheapest = min(flights_list, key=lambda f: f.price)
                         results_data.append({
                             "departure_date": depart_date.strftime("%Y-%m-%d"),
-                            "return_date": return_date.strftime("%Y-%m-%d"),
+                            "return_date": ret_date.strftime("%Y-%m-%d"),
                             "cheapest_flight": flights_to_dict(cheapest),
                         })
                     else:
                         results_data.append({
                             "departure_date": depart_date.strftime("%Y-%m-%d"),
-                            "return_date": return_date.strftime("%Y-%m-%d"),
+                            "return_date": ret_date.strftime("%Y-%m-%d"),
                             "flights": [flights_to_dict(f) for f in flights_list],
                         })
 
         except Exception as e:
-            print(f"MCP Tool Error for {depart_date} -> {return_date}: {type(e).__name__} - {e}", file=sys.stderr)
-            err_msg = f"Error for {depart_date.strftime('%Y-%m-%d')} -> {return_date.strftime('%Y-%m-%d')}: {type(e).__name__}"
+            print(f"MCP Tool Error for {depart_date} -> {ret_date}: {type(e).__name__} - {e}", file=sys.stderr)
+            err_msg = f"Error for {depart_date.strftime('%Y-%m-%d')} -> {ret_date.strftime('%Y-%m-%d')}: {type(e).__name__}"
             if err_msg not in error_messages:
                 error_messages.append(err_msg)
 
