@@ -27,12 +27,20 @@ mcp = FastMCP("google-flights-cheapest-finder")
 
 
 def format_datetime(sdt):
-    minutes = sdt.time[1] if len(sdt.time) > 1 else 0
-    return f"{sdt.time[0]}:{minutes:02d}"
+    if not sdt or not sdt.time:
+        return "??:??"
+    hours = sdt.time[0] if sdt.time[0] is not None else 0
+    minutes = sdt.time[1] if len(sdt.time) > 1 and sdt.time[1] is not None else 0
+    return f"{hours}:{minutes:02d}"
 
 
 def format_date(sdt):
-    return f"{sdt.date[0]:04d}-{sdt.date[1]:02d}-{sdt.date[2]:02d}"
+    if not sdt or not sdt.date or len(sdt.date) < 3:
+        return "????-??-??"
+    y = sdt.date[0] if sdt.date[0] is not None else 0
+    m = sdt.date[1] if sdt.date[1] is not None else 0
+    d = sdt.date[2] if sdt.date[2] is not None else 0
+    return f"{y:04d}-{m:02d}-{d:02d}"
 
 
 def format_segment(seg):
@@ -41,15 +49,20 @@ def format_segment(seg):
     dep_date = format_date(seg.departure)
     arr_date = format_date(seg.arrival)
     date_str = dep_date if dep_date == arr_date else f"{dep_date} - {arr_date}"
-    return f"{seg.from_airport.code} {dep} -> {seg.to_airport.code} {arr} ({date_str}, {seg.duration}min, {seg.plane_type})"
+    duration = seg.duration if seg.duration is not None else "?"
+    plane = seg.plane_type or "unknown"
+    from_code = seg.from_airport.code if seg.from_airport else "?"
+    to_code = seg.to_airport.code if seg.to_airport else "?"
+    return f"{from_code} {dep} -> {to_code} {arr} ({date_str}, {duration}min, {plane})"
 
 
 def format_flight(f):
-    airlines = ", ".join(f.airlines) if f.airlines else f.type
-    lines = [f"**${f.price}** - {airlines}"]
+    airlines = ", ".join(f.airlines) if f.airlines else (f.type or "Unknown")
+    price = f"${f.price}" if f.price is not None else "Price N/A"
+    lines = [f"**{price}** - {airlines}"]
     for seg in f.flights:
         lines.append(f"  - {format_segment(seg)}")
-    if f.carbon:
+    if f.carbon and f.carbon.emission is not None:
         emission_kg = round(f.carbon.emission / 1000, 1)
         lines.append(f"  - Carbon: {emission_kg} kg CO2")
     return "\n".join(lines)
