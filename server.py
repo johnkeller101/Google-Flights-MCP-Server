@@ -46,26 +46,21 @@ def format_date(sdt):
 def format_segment(seg):
     dep = format_datetime(seg.departure)
     arr = format_datetime(seg.arrival)
-    dep_date = format_date(seg.departure)
-    arr_date = format_date(seg.arrival)
-    date_str = dep_date if dep_date == arr_date else f"{dep_date} - {arr_date}"
-    duration = seg.duration if seg.duration is not None else "?"
-    plane = seg.plane_type or "unknown"
-    from_code = (seg.from_airport.code or seg.from_airport.name or "?") if seg.from_airport else "?"
-    to_code = (seg.to_airport.code or seg.to_airport.name or "?") if seg.to_airport else "?"
-    return f"{from_code} {dep} -> {to_code} {arr} ({date_str}, {duration}min, {plane})"
+    from_code = (seg.from_airport.code or "?") if seg.from_airport else "?"
+    to_code = (seg.to_airport.code or "?") if seg.to_airport else "?"
+    return f"{from_code} {dep}->{to_code} {arr}"
 
 
 def format_flight(f):
     airlines = ", ".join(f.airlines) if f.airlines else (f.type or "Unknown")
-    price = f"${f.price}" if f.price is not None else "Price N/A"
-    lines = [f"**{price}** - {airlines}"]
-    for seg in (f.flights or []):
-        lines.append(f"  - {format_segment(seg)}")
-    if f.carbon and f.carbon.emission is not None:
-        emission_kg = round(f.carbon.emission / 1000, 1)
-        lines.append(f"  - Carbon: {emission_kg} kg CO2")
-    return "\n".join(lines)
+    price = f"${f.price}" if f.price is not None else "N/A"
+    segments = (f.flights or [])
+    route = " / ".join(format_segment(seg) for seg in segments)
+    stops = len(segments) - 1
+    stop_str = "nonstop" if stops <= 0 else f"{stops} stop"
+    duration = segments[0].duration if len(segments) == 1 and segments[0].duration else None
+    dur_str = f", {duration}min" if duration else ""
+    return f"**{price}** {airlines} | {route} ({stop_str}{dur_str})"
 
 
 def map_seat_type(seat_type: str) -> str:
@@ -125,11 +120,10 @@ async def get_flights_on_date(
                 if priced:
                     flights_list = [min(priced, key=lambda fl: fl.price)]
 
-            lines = [f"## Flights: {origin} -> {destination} on {date}", ""]
-            for f in flights_list:
-                lines.append(f"- {format_flight(f)}")
-            lines.append("")
-            lines.append(f"*{len(flights_list)} result(s), {adults} adult(s), {seat_type}*")
+            lines = [f"## {len(flights_list)} Flights: {origin} -> {destination} on {date}"]
+            for i, f in enumerate(flights_list, 1):
+                lines.append(f"{i}. {format_flight(f)}")
+            lines.append(f"\nPresent ALL {len(flights_list)} flights above to the user. Do not omit any.")
             return "\n".join(lines)
         else:
             return f"No flights found for {origin} -> {destination} on {date}."
@@ -190,11 +184,10 @@ async def get_round_trip_flights(
                 if priced:
                     flights_list = [min(priced, key=lambda fl: fl.price)]
 
-            lines = [f"## Round Trip: {origin} <-> {destination}", f"**Depart:** {departure_date} | **Return:** {return_date}", ""]
-            for f in flights_list:
-                lines.append(f"- {format_flight(f)}")
-            lines.append("")
-            lines.append(f"*{len(flights_list)} result(s), {adults} adult(s), {seat_type}*")
+            lines = [f"## {len(flights_list)} Round Trip Flights: {origin} <-> {destination}", f"Depart: {departure_date} | Return: {return_date}"]
+            for i, f in enumerate(flights_list, 1):
+                lines.append(f"{i}. {format_flight(f)}")
+            lines.append(f"\nPresent ALL {len(flights_list)} flights above to the user. Do not omit any.")
             return "\n".join(lines)
         else:
             return f"No round-trip flights found for {origin} <-> {destination}."
