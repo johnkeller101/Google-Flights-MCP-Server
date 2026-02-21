@@ -101,7 +101,7 @@ async def get_flights_on_date(
         max_stops: Maximum number of stops (0 for nonstop only, 1 for up to 1 stop, etc.). None for no limit.
         return_cheapest_only: If True, returns only the cheapest flight (default: False).
     """
-    print(f"MCP Tool: Getting flights {origin}->{destination} for {date}...", file=sys.stderr)
+    print(f"FLIGHTS MCP: Getting flights {origin}->{destination} for {date}", file=sys.stderr)
     try:
         datetime.datetime.strptime(date, "%Y-%m-%d")
 
@@ -116,7 +116,7 @@ async def get_flights_on_date(
 
         if result:
             flights_list = list(result)
-            print(f"MCP Tool: Parser returned {len(flights_list)} flights for {origin}->{destination} on {date}", file=sys.stderr)
+            print(f"FLIGHTS MCP: Parser returned {len(flights_list)} flights for {origin}->{destination} on {date}", file=sys.stderr)
             if not flights_list:
                 return f"No flights found for {origin} -> {destination} on {date}."
 
@@ -129,7 +129,7 @@ async def get_flights_on_date(
             lines = [f"## {len(flights_list)} One-Way Flights: {origin} -> {destination} on {date} (prices are total{pax})"]
             for i, f in enumerate(flights_list, 1):
                 lines.append(f"{i}. {format_flight(f)}")
-            print(f"MCP Tool: Returning {len(flights_list)} formatted flights", file=sys.stderr)
+            print(f"FLIGHTS MCP: Returning {len(flights_list)} formatted flights", file=sys.stderr)
             return "\n".join(lines)
         else:
             return f"No flights found for {origin} -> {destination} on {date}."
@@ -137,7 +137,7 @@ async def get_flights_on_date(
     except ValueError:
         return f"Error: Invalid date format '{date}'. Please use YYYY-MM-DD."
     except Exception as e:
-        print(f"MCP Tool Error in get_flights_on_date: {e}", file=sys.stderr)
+        print(f"FLIGHTS MCP: Error in get_flights_on_date: {e}", file=sys.stderr)
         return f"Error searching flights: {e}"
 
 
@@ -167,7 +167,7 @@ async def get_round_trip_flights(
         max_stops: Maximum number of stops (0 for nonstop only, 1 for up to 1 stop, etc.). None for no limit.
         return_cheapest_only: If True, returns only the cheapest flight (default: False).
     """
-    print(f"MCP Tool: Getting round trip {origin}<->{destination} for {departure_date} to {return_date}...", file=sys.stderr)
+    print(f"FLIGHTS MCP: Getting round trip {origin}<->{destination} for {departure_date} to {return_date}", file=sys.stderr)
     try:
         datetime.datetime.strptime(departure_date, "%Y-%m-%d")
         datetime.datetime.strptime(return_date, "%Y-%m-%d")
@@ -186,7 +186,7 @@ async def get_round_trip_flights(
 
         if result:
             flights_list = list(result)
-            print(f"MCP Tool: Parser returned {len(flights_list)} round-trip flights for {origin}<->{destination}", file=sys.stderr)
+            print(f"FLIGHTS MCP: Parser returned {len(flights_list)} round-trip flights for {origin}<->{destination}", file=sys.stderr)
             if not flights_list:
                 return f"No round-trip flights found for {origin} <-> {destination}."
 
@@ -199,7 +199,7 @@ async def get_round_trip_flights(
             lines = [f"## {len(flights_list)} Round-Trip Flights: {origin} <-> {destination} (prices are total round-trip{pax})", f"Depart: {departure_date} | Return: {return_date}"]
             for i, f in enumerate(flights_list, 1):
                 lines.append(f"{i}. {format_flight(f)}")
-            print(f"MCP Tool: Returning {len(flights_list)} formatted round-trip flights", file=sys.stderr)
+            print(f"FLIGHTS MCP: Returning {len(flights_list)} formatted round-trip flights", file=sys.stderr)
             return "\n".join(lines)
         else:
             return f"No round-trip flights found for {origin} <-> {destination}."
