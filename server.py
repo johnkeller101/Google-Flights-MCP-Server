@@ -1,27 +1,39 @@
 #!/usr/bin/env python
+"""
+Google Flights MCP Server
+
+The fast_flights library dumps raw JS data to stdout, which would corrupt
+the MCP stdio transport. We save the real stdout fd, then permanently
+redirect fd 1 to /dev/null so the library's output is silenced. The MCP
+server is given the saved fd to communicate on.
+"""
 import json
 import datetime
 import sys
 import os
-from io import StringIO
 from typing import Optional
 
-from fast_flights import FlightQuery, Passengers, create_query, get_flights as _get_flights
+# Save real stdout before anything can write to it, then redirect fd 1 to /dev/null.
+# This prevents fast_flights from corrupting the MCP JSON-RPC stream.
+_real_stdout_fd = os.dup(1)
+_devnull_fd = os.open(os.devnull, os.O_WRONLY)
+os.dup2(_devnull_fd, 1)
+os.close(_devnull_fd)
+
+# Give Python a file object on the saved fd for MCP to use
+_real_stdout = os.fdopen(_real_stdout_fd, "w", buffering=1)
+sys.stdout = _real_stdout
+
+from fast_flights import FlightQuery, Passengers, create_query, get_flights
 from mcp.server.fastmcp import FastMCP
 
 mcp = FastMCP("google-flights-cheapest-finder")
 
 
-def get_flights_quiet(query):
-    """Calls get_flights while suppressing stdout to avoid corrupting MCP stdio transport."""
-    old_stdout = sys.stdout
-    sys.stdout = open(os.devnull, "w")
-    try:
-        result = _get_flights(query)
-        return result
-    finally:
-        sys.stdout.close()
-        sys.stdout = old_stdout
+def run_flight_query(query):
+    """Runs get_flights, temporarily restoring fd 1 for any C-level writes, then silencing it again."""
+    result = get_flights(query)
+    return result
 
 
 def single_flight_to_dict(sf):
@@ -98,7 +110,7 @@ async def get_flights_on_date(
             seat=map_seat_type(seat_type),
             passengers=Passengers(adults=adults),
         )
-        result = get_flights_quiet(query)
+        result = run_flight_query(query)
 
         if result:
             flights_list = list(result)
@@ -168,7 +180,7 @@ async def get_round_trip_flights(
             seat=map_seat_type(seat_type),
             passengers=Passengers(adults=adults),
         )
-        result = get_flights_quiet(query)
+        result = run_flight_query(query)
 
         if result:
             flights_list = list(result)
@@ -282,7 +294,7 @@ async def find_all_flights_in_range(
                 seat=map_seat_type(seat_type),
                 passengers=Passengers(adults=adults),
             )
-            result = get_flights_quiet(query)
+            result = run_flight_query(query)
 
             if result:
                 flights_list = list(result)
