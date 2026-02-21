@@ -88,7 +88,7 @@ async def get_flights_on_date(
     return_cheapest_only: bool = False,
 ) -> str:
     """
-    Fetches ONE-WAY flights only. Prices are one-way fares per person.
+    Fetches ONE-WAY flights only. Prices are the total for all passengers combined (not per person).
     WARNING: Do NOT use this tool twice to simulate a round trip — the prices will be wrong.
     For round trips, use get_round_trip_flights instead, which returns correct round-trip pricing.
 
@@ -124,7 +124,8 @@ async def get_flights_on_date(
                 if priced:
                     flights_list = [min(priced, key=lambda fl: fl.price)]
 
-            lines = [f"## {len(flights_list)} One-Way Flights: {origin} -> {destination} on {date}"]
+            pax = f" for {adults} passenger{'s' if adults > 1 else ''}" if adults > 1 else ""
+            lines = [f"## {len(flights_list)} One-Way Flights: {origin} -> {destination} on {date} (prices are total{pax})"]
             for i, f in enumerate(flights_list, 1):
                 lines.append(f"{i}. {format_flight(f)}")
             return "\n".join(lines)
@@ -151,7 +152,7 @@ async def get_round_trip_flights(
 ) -> str:
     """
     Fetches ROUND-TRIP flights. This is the preferred tool when the user wants to fly somewhere and back.
-    Prices are total round-trip fares per person (outbound + return combined).
+    Prices are the total round-trip cost for all passengers combined (not per person).
     Always use this instead of calling get_flights_on_date twice.
 
     Args:
@@ -191,7 +192,8 @@ async def get_round_trip_flights(
                 if priced:
                     flights_list = [min(priced, key=lambda fl: fl.price)]
 
-            lines = [f"## {len(flights_list)} Round-Trip Flights: {origin} <-> {destination} (prices are round-trip)", f"Depart: {departure_date} | Return: {return_date}"]
+            pax = f" for {adults} passenger{'s' if adults > 1 else ''}" if adults > 1 else ""
+            lines = [f"## {len(flights_list)} Round-Trip Flights: {origin} <-> {destination} (prices are total round-trip{pax})", f"Depart: {departure_date} | Return: {return_date}"]
             for i, f in enumerate(flights_list, 1):
                 lines.append(f"{i}. {format_flight(f)}")
             return "\n".join(lines)
@@ -220,7 +222,7 @@ async def find_all_flights_in_range(
 ) -> str:
     """
     Finds the cheapest round-trip flights across a range of dates. Useful for flexible travel dates.
-    Prices are total round-trip fares per person. Searches every valid departure+return date combination.
+    Prices are the total round-trip cost for all passengers combined (not per person). Searches every valid departure+return date combination.
 
     Args:
         origin: Origin airport code (e.g., "DEN").
@@ -270,7 +272,8 @@ async def find_all_flights_in_range(
     total_combinations = len(date_pairs_to_check)
     print(f"MCP Tool: Checking {total_combinations} date combinations...", file=sys.stderr)
 
-    lines = [f"## Round-Trip Flight Search: {origin} <-> {destination} (prices are round-trip)", f"**Range:** {start_date_str} to {end_date_str}", ""]
+    pax = f" for {adults} passenger{'s' if adults > 1 else ''}" if adults > 1 else ""
+    lines = [f"## Round-Trip Flight Search: {origin} <-> {destination} (prices are total round-trip{pax})", f"**Range:** {start_date_str} to {end_date_str}", ""]
     errors = []
 
     for count, (depart_date, ret_date) in enumerate(date_pairs_to_check, 1):
