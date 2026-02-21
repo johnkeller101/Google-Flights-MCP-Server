@@ -123,7 +123,6 @@ async def get_flights_on_date(
             lines = [f"## {len(flights_list)} Flights: {origin} -> {destination} on {date}"]
             for i, f in enumerate(flights_list, 1):
                 lines.append(f"{i}. {format_flight(f)}")
-            lines.append(f"\nPresent ALL {len(flights_list)} flights above to the user. Do not omit any.")
             return "\n".join(lines)
         else:
             return f"No flights found for {origin} -> {destination} on {date}."
@@ -187,7 +186,6 @@ async def get_round_trip_flights(
             lines = [f"## {len(flights_list)} Round Trip Flights: {origin} <-> {destination}", f"Depart: {departure_date} | Return: {return_date}"]
             for i, f in enumerate(flights_list, 1):
                 lines.append(f"{i}. {format_flight(f)}")
-            lines.append(f"\nPresent ALL {len(flights_list)} flights above to the user. Do not omit any.")
             return "\n".join(lines)
         else:
             return f"No round-trip flights found for {origin} <-> {destination}."
