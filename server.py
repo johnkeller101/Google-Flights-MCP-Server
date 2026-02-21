@@ -84,6 +84,7 @@ async def get_flights_on_date(
     date: str,
     adults: int = 1,
     seat_type: str = "economy",
+    max_stops: Optional[int] = None,
     return_cheapest_only: bool = False,
 ) -> str:
     """
@@ -97,6 +98,7 @@ async def get_flights_on_date(
         date: The specific date to search (YYYY-MM-DD format).
         adults: Number of adult passengers (default: 1).
         seat_type: Fare class (e.g., "economy", "business", default: "economy").
+        max_stops: Maximum number of stops (0 for nonstop only, 1 for up to 1 stop, etc.). None for no limit.
         return_cheapest_only: If True, returns only the cheapest flight (default: False).
     """
     print(f"MCP Tool: Getting flights {origin}->{destination} for {date}...", file=sys.stderr)
@@ -108,6 +110,7 @@ async def get_flights_on_date(
             trip="one-way",
             seat=map_seat_type(seat_type),
             passengers=Passengers(adults=adults),
+            max_stops=max_stops,
         )
         result = get_flights(query)
 
@@ -143,6 +146,7 @@ async def get_round_trip_flights(
     return_date: str,
     adults: int = 1,
     seat_type: str = "economy",
+    max_stops: Optional[int] = None,
     return_cheapest_only: bool = False,
 ) -> str:
     """
@@ -157,6 +161,7 @@ async def get_round_trip_flights(
         return_date: The specific return date (YYYY-MM-DD format).
         adults: Number of adult passengers (default: 1).
         seat_type: Fare class (e.g., "economy", "business", default: "economy").
+        max_stops: Maximum number of stops (0 for nonstop only, 1 for up to 1 stop, etc.). None for no limit.
         return_cheapest_only: If True, returns only the cheapest flight (default: False).
     """
     print(f"MCP Tool: Getting round trip {origin}<->{destination} for {departure_date} to {return_date}...", file=sys.stderr)
@@ -172,6 +177,7 @@ async def get_round_trip_flights(
             trip="round-trip",
             seat=map_seat_type(seat_type),
             passengers=Passengers(adults=adults),
+            max_stops=max_stops,
         )
         result = get_flights(query)
 
@@ -209,6 +215,7 @@ async def find_all_flights_in_range(
     max_stay_days: Optional[int] = None,
     adults: int = 1,
     seat_type: str = "economy",
+    max_stops: Optional[int] = None,
     return_cheapest_only: bool = False,
 ) -> str:
     """
@@ -225,6 +232,7 @@ async def find_all_flights_in_range(
         max_stay_days: Maximum number of days for the stay (optional).
         adults: Number of adult passengers (default: 1).
         seat_type: Fare class (e.g., "economy", "business", default: "economy").
+        max_stops: Maximum number of stops (0 for nonstop only, 1 for up to 1 stop, etc.). None for no limit.
         return_cheapest_only: If True, returns only the cheapest flight for each date pair (default: False).
     """
     search_mode = "cheapest per pair" if return_cheapest_only else "all flights"
@@ -279,6 +287,7 @@ async def find_all_flights_in_range(
                 trip="round-trip",
                 seat=map_seat_type(seat_type),
                 passengers=Passengers(adults=adults),
+                max_stops=max_stops,
             )
             result = get_flights(query)
 
