@@ -88,9 +88,9 @@ async def get_flights_on_date(
     return_cheapest_only: bool = False,
 ) -> str:
     """
-    Fetches available one-way flights for a specific date between two airports.
-    Prices shown are one-way fares per person.
-    Can optionally return only the cheapest flight found.
+    Fetches ONE-WAY flights only. Prices are one-way fares per person.
+    WARNING: Do NOT use this tool twice to simulate a round trip — the prices will be wrong.
+    For round trips, use get_round_trip_flights instead, which returns correct round-trip pricing.
 
     Args:
         origin: Origin airport code (e.g., "DEN").
@@ -150,9 +150,9 @@ async def get_round_trip_flights(
     return_cheapest_only: bool = False,
 ) -> str:
     """
-    Fetches available round-trip flights for specific departure and return dates.
-    Prices shown are total round-trip fares per person.
-    Can optionally return only the cheapest flight found.
+    Fetches ROUND-TRIP flights. This is the preferred tool when the user wants to fly somewhere and back.
+    Prices are total round-trip fares per person (outbound + return combined).
+    Always use this instead of calling get_flights_on_date twice.
 
     Args:
         origin: Origin airport code (e.g., "DEN").
@@ -219,9 +219,8 @@ async def find_all_flights_in_range(
     return_cheapest_only: bool = False,
 ) -> str:
     """
-    Finds available round-trip flights within a specified date range.
-    Prices shown are total round-trip fares per person.
-    Can optionally return only the cheapest flight found for each date pair.
+    Finds the cheapest round-trip flights across a range of dates. Useful for flexible travel dates.
+    Prices are total round-trip fares per person. Searches every valid departure+return date combination.
 
     Args:
         origin: Origin airport code (e.g., "DEN").
