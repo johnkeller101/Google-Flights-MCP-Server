@@ -116,6 +116,7 @@ async def get_flights_on_date(
 
         if result:
             flights_list = list(result)
+            print(f"MCP Tool: Parser returned {len(flights_list)} flights for {origin}->{destination} on {date}", file=sys.stderr)
             if not flights_list:
                 return f"No flights found for {origin} -> {destination} on {date}."
 
@@ -128,6 +129,7 @@ async def get_flights_on_date(
             lines = [f"## {len(flights_list)} One-Way Flights: {origin} -> {destination} on {date} (prices are total{pax})"]
             for i, f in enumerate(flights_list, 1):
                 lines.append(f"{i}. {format_flight(f)}")
+            print(f"MCP Tool: Returning {len(flights_list)} formatted flights", file=sys.stderr)
             return "\n".join(lines)
         else:
             return f"No flights found for {origin} -> {destination} on {date}."
@@ -184,6 +186,7 @@ async def get_round_trip_flights(
 
         if result:
             flights_list = list(result)
+            print(f"MCP Tool: Parser returned {len(flights_list)} round-trip flights for {origin}<->{destination}", file=sys.stderr)
             if not flights_list:
                 return f"No round-trip flights found for {origin} <-> {destination}."
 
@@ -196,6 +199,7 @@ async def get_round_trip_flights(
             lines = [f"## {len(flights_list)} Round-Trip Flights: {origin} <-> {destination} (prices are total round-trip{pax})", f"Depart: {departure_date} | Return: {return_date}"]
             for i, f in enumerate(flights_list, 1):
                 lines.append(f"{i}. {format_flight(f)}")
+            print(f"MCP Tool: Returning {len(flights_list)} formatted round-trip flights", file=sys.stderr)
             return "\n".join(lines)
         else:
             return f"No round-trip flights found for {origin} <-> {destination}."
