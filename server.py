@@ -102,20 +102,14 @@ async def get_flights_on_date(
                 processed = [flights_to_dict(f) for f in flights_list]
                 result_key = "flights"
 
-            return json.dumps(
-                {
-                    "search_parameters": {
-                        "origin": origin,
-                        "destination": destination,
-                        "date": date,
-                        "adults": adults,
-                        "seat_type": seat_type,
-                        "return_cheapest_only": return_cheapest_only,
-                    },
-                    result_key: processed,
+            return json.dumps({
+                "search_parameters": {
+                    "origin": origin, "destination": destination, "date": date,
+                    "adults": adults, "seat_type": seat_type,
+                    "return_cheapest_only": return_cheapest_only,
                 },
-                indent=2,
-            )
+                result_key: processed,
+            }, indent=2)
         else:
             return json.dumps({"message": f"No flights found for {origin} -> {destination} on {date}."})
 
@@ -178,21 +172,15 @@ async def get_round_trip_flights(
                 processed = [flights_to_dict(f) for f in flights_list]
                 result_key = "round_trip_options"
 
-            return json.dumps(
-                {
-                    "search_parameters": {
-                        "origin": origin,
-                        "destination": destination,
-                        "departure_date": departure_date,
-                        "return_date": return_date,
-                        "adults": adults,
-                        "seat_type": seat_type,
-                        "return_cheapest_only": return_cheapest_only,
-                    },
-                    result_key: processed,
+            return json.dumps({
+                "search_parameters": {
+                    "origin": origin, "destination": destination,
+                    "departure_date": departure_date, "return_date": return_date,
+                    "adults": adults, "seat_type": seat_type,
+                    "return_cheapest_only": return_cheapest_only,
                 },
-                indent=2,
-            )
+                result_key: processed,
+            }, indent=2)
         else:
             return json.dumps({"message": f"No round trip flights found for {origin} <-> {destination}."})
 
@@ -311,24 +299,17 @@ async def find_all_flights_in_range(
     print("MCP Tool: Range search complete.", file=sys.stderr)
 
     results_key = "cheapest_option_per_date_pair" if return_cheapest_only else "all_round_trip_options"
-    return json.dumps(
-        {
-            "search_parameters": {
-                "origin": origin,
-                "destination": destination,
-                "start_date": start_date_str,
-                "end_date": end_date_str,
-                "min_stay_days": min_stay_days,
-                "max_stay_days": max_stay_days,
-                "adults": adults,
-                "seat_type": seat_type,
-                "return_cheapest_only": return_cheapest_only,
-            },
-            results_key: results_data,
-            "errors_encountered": error_messages if error_messages else None,
+    return json.dumps({
+        "search_parameters": {
+            "origin": origin, "destination": destination,
+            "start_date": start_date_str, "end_date": end_date_str,
+            "min_stay_days": min_stay_days, "max_stay_days": max_stay_days,
+            "adults": adults, "seat_type": seat_type,
+            "return_cheapest_only": return_cheapest_only,
         },
-        indent=2,
-    )
+        results_key: results_data,
+        "errors_encountered": error_messages if error_messages else None,
+    }, indent=2)
 
 
 if __name__ == "__main__":
