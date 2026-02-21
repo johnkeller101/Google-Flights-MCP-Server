@@ -7,20 +7,16 @@ the MCP stdio transport. We save the real stdout fd, then permanently
 redirect fd 1 to /dev/null so the library's output is silenced. The MCP
 server is given the saved fd to communicate on.
 """
-import json
 import datetime
 import sys
 import os
 from typing import Optional
 
 # Save real stdout before anything can write to it, then redirect fd 1 to /dev/null.
-# This prevents fast_flights from corrupting the MCP JSON-RPC stream.
 _real_stdout_fd = os.dup(1)
 _devnull_fd = os.open(os.devnull, os.O_WRONLY)
 os.dup2(_devnull_fd, 1)
 os.close(_devnull_fd)
-
-# Give Python a file object on the saved fd for MCP to use
 _real_stdout = os.fdopen(_real_stdout_fd, "w", buffering=1)
 sys.stdout = _real_stdout
 
@@ -30,41 +26,33 @@ from mcp.server.fastmcp import FastMCP
 mcp = FastMCP("google-flights-cheapest-finder")
 
 
-def run_flight_query(query):
-    """Runs get_flights, temporarily restoring fd 1 for any C-level writes, then silencing it again."""
-    result = get_flights(query)
-    return result
-
-
-def single_flight_to_dict(sf):
-    return {
-        "from_airport": {"name": sf.from_airport.name, "code": sf.from_airport.code},
-        "to_airport": {"name": sf.to_airport.name, "code": sf.to_airport.code},
-        "departure": format_datetime(sf.departure),
-        "arrival": format_datetime(sf.arrival),
-        "duration_minutes": sf.duration,
-        "plane_type": sf.plane_type,
-    }
-
-
 def format_datetime(sdt):
-    date_part = f"{sdt.date[0]:04d}-{sdt.date[1]:02d}-{sdt.date[2]:02d}"
     minutes = sdt.time[1] if len(sdt.time) > 1 else 0
-    time_part = f"{sdt.time[0]:02d}:{minutes:02d}"
-    return f"{date_part} {time_part}"
+    return f"{sdt.time[0]}:{minutes:02d}"
 
 
-def flights_to_dict(flights_obj):
-    result = {
-        "airlines": flights_obj.airlines,
-        "price": flights_obj.price,
-        "type": flights_obj.type,
-        "segments": [single_flight_to_dict(sf) for sf in flights_obj.flights],
-    }
-    if flights_obj.carbon:
-        result["carbon_emission_grams"] = flights_obj.carbon.emission
-        result["typical_carbon_grams"] = flights_obj.carbon.typical_on_route
-    return result
+def format_date(sdt):
+    return f"{sdt.date[0]:04d}-{sdt.date[1]:02d}-{sdt.date[2]:02d}"
+
+
+def format_segment(seg):
+    dep = format_datetime(seg.departure)
+    arr = format_datetime(seg.arrival)
+    dep_date = format_date(seg.departure)
+    arr_date = format_date(seg.arrival)
+    date_str = dep_date if dep_date == arr_date else f"{dep_date} - {arr_date}"
+    return f"{seg.from_airport.code} {dep} -> {seg.to_airport.code} {arr} ({date_str}, {seg.duration}min, {seg.plane_type})"
+
+
+def format_flight(f):
+    airlines = ", ".join(f.airlines) if f.airlines else f.type
+    lines = [f"**${f.price}** - {airlines}"]
+    for seg in f.flights:
+        lines.append(f"  - {format_segment(seg)}")
+    if f.carbon:
+        emission_kg = round(f.carbon.emission / 1000, 1)
+        lines.append(f"  - Carbon: {emission_kg} kg CO2")
+    return "\n".join(lines)
 
 
 def map_seat_type(seat_type: str) -> str:
@@ -110,37 +98,31 @@ async def get_flights_on_date(
             seat=map_seat_type(seat_type),
             passengers=Passengers(adults=adults),
         )
-        result = run_flight_query(query)
+        result = get_flights(query)
 
         if result:
             flights_list = list(result)
             if not flights_list:
-                return json.dumps({"message": f"No flights found for {origin} -> {destination} on {date}."})
+                return f"No flights found for {origin} -> {destination} on {date}."
 
             if return_cheapest_only:
                 cheapest = min(flights_list, key=lambda f: f.price)
-                processed = [flights_to_dict(cheapest)]
-                result_key = "cheapest_flight"
-            else:
-                processed = [flights_to_dict(f) for f in flights_list]
-                result_key = "flights"
+                flights_list = [cheapest]
 
-            return json.dumps({
-                "search_parameters": {
-                    "origin": origin, "destination": destination, "date": date,
-                    "adults": adults, "seat_type": seat_type,
-                    "return_cheapest_only": return_cheapest_only,
-                },
-                result_key: processed,
-            }, indent=2)
+            lines = [f"## Flights: {origin} -> {destination} on {date}", ""]
+            for f in flights_list:
+                lines.append(f"- {format_flight(f)}")
+            lines.append("")
+            lines.append(f"*{len(flights_list)} result(s), {adults} adult(s), {seat_type}*")
+            return "\n".join(lines)
         else:
-            return json.dumps({"message": f"No flights found for {origin} -> {destination} on {date}."})
+            return f"No flights found for {origin} -> {destination} on {date}."
 
     except ValueError:
-        return json.dumps({"error": {"message": f"Invalid date format: '{date}'. Please use YYYY-MM-DD.", "type": "ValueError"}})
+        return f"Error: Invalid date format '{date}'. Please use YYYY-MM-DD."
     except Exception as e:
         print(f"MCP Tool Error in get_flights_on_date: {e}", file=sys.stderr)
-        return json.dumps({"error": {"message": str(e), "type": type(e).__name__}})
+        return f"Error searching flights: {e}"
 
 
 @mcp.tool()
@@ -180,38 +162,31 @@ async def get_round_trip_flights(
             seat=map_seat_type(seat_type),
             passengers=Passengers(adults=adults),
         )
-        result = run_flight_query(query)
+        result = get_flights(query)
 
         if result:
             flights_list = list(result)
             if not flights_list:
-                return json.dumps({"message": f"No round trip flights found for {origin} <-> {destination}."})
+                return f"No round-trip flights found for {origin} <-> {destination}."
 
             if return_cheapest_only:
                 cheapest = min(flights_list, key=lambda f: f.price)
-                processed = [flights_to_dict(cheapest)]
-                result_key = "cheapest_round_trip_option"
-            else:
-                processed = [flights_to_dict(f) for f in flights_list]
-                result_key = "round_trip_options"
+                flights_list = [cheapest]
 
-            return json.dumps({
-                "search_parameters": {
-                    "origin": origin, "destination": destination,
-                    "departure_date": departure_date, "return_date": return_date,
-                    "adults": adults, "seat_type": seat_type,
-                    "return_cheapest_only": return_cheapest_only,
-                },
-                result_key: processed,
-            }, indent=2)
+            lines = [f"## Round Trip: {origin} <-> {destination}", f"**Depart:** {departure_date} | **Return:** {return_date}", ""]
+            for f in flights_list:
+                lines.append(f"- {format_flight(f)}")
+            lines.append("")
+            lines.append(f"*{len(flights_list)} result(s), {adults} adult(s), {seat_type}*")
+            return "\n".join(lines)
         else:
-            return json.dumps({"message": f"No round trip flights found for {origin} <-> {destination}."})
+            return f"No round-trip flights found for {origin} <-> {destination}."
 
     except ValueError:
-        return json.dumps({"error": {"message": "Invalid date format. Use YYYY-MM-DD.", "type": "ValueError"}})
+        return "Error: Invalid date format. Please use YYYY-MM-DD."
     except Exception as e:
         print(f"MCP Tool Error in get_round_trip_flights: {e}", file=sys.stderr)
-        return json.dumps({"error": {"message": str(e), "type": type(e).__name__}})
+        return f"Error searching flights: {e}"
 
 
 @mcp.tool(name="find_all_flights_in_range")
@@ -241,20 +216,17 @@ async def find_all_flights_in_range(
         seat_type: Fare class (e.g., "economy", "business", default: "economy").
         return_cheapest_only: If True, returns only the cheapest flight for each date pair (default: False).
     """
-    search_mode = "cheapest flight per pair" if return_cheapest_only else "all flights"
+    search_mode = "cheapest per pair" if return_cheapest_only else "all flights"
     print(f"MCP Tool: Finding {search_mode} {origin}<->{destination} between {start_date_str} and {end_date_str}...", file=sys.stderr)
-
-    results_data = []
-    error_messages = []
 
     try:
         start_date = datetime.datetime.strptime(start_date_str, "%Y-%m-%d").date()
         end_date = datetime.datetime.strptime(end_date_str, "%Y-%m-%d").date()
     except ValueError:
-        return json.dumps({"error": {"message": "Invalid date format. Use YYYY-MM-DD.", "type": "ValueError"}})
+        return "Error: Invalid date format. Please use YYYY-MM-DD."
 
     if start_date > end_date:
-        return json.dumps({"error": {"message": "Start date cannot be after end date.", "type": "ValueError"}})
+        return "Error: Start date cannot be after end date."
 
     date_list = []
     current_date = start_date
@@ -263,7 +235,7 @@ async def find_all_flights_in_range(
         current_date += datetime.timedelta(days=1)
 
     if not date_list:
-        return json.dumps({"error": "No valid dates in the specified range."})
+        return "Error: No valid dates in the specified range."
 
     date_pairs_to_check = []
     for i, depart_date in enumerate(date_list):
@@ -278,7 +250,10 @@ async def find_all_flights_in_range(
                 date_pairs_to_check.append((depart_date, ret_date))
 
     total_combinations = len(date_pairs_to_check)
-    print(f"MCP Tool: Checking {total_combinations} valid date combinations in range...", file=sys.stderr)
+    print(f"MCP Tool: Checking {total_combinations} date combinations...", file=sys.stderr)
+
+    lines = [f"## Flight Search: {origin} <-> {destination}", f"**Range:** {start_date_str} to {end_date_str}", ""]
+    errors = []
 
     for count, (depart_date, ret_date) in enumerate(date_pairs_to_check, 1):
         if count % 10 == 0:
@@ -294,45 +269,35 @@ async def find_all_flights_in_range(
                 seat=map_seat_type(seat_type),
                 passengers=Passengers(adults=adults),
             )
-            result = run_flight_query(query)
+            result = get_flights(query)
 
             if result:
                 flights_list = list(result)
                 if flights_list:
                     if return_cheapest_only:
                         cheapest = min(flights_list, key=lambda f: f.price)
-                        results_data.append({
-                            "departure_date": depart_date.strftime("%Y-%m-%d"),
-                            "return_date": ret_date.strftime("%Y-%m-%d"),
-                            "cheapest_flight": flights_to_dict(cheapest),
-                        })
-                    else:
-                        results_data.append({
-                            "departure_date": depart_date.strftime("%Y-%m-%d"),
-                            "return_date": ret_date.strftime("%Y-%m-%d"),
-                            "flights": [flights_to_dict(f) for f in flights_list],
-                        })
+                        flights_list = [cheapest]
+
+                    dep_str = depart_date.strftime("%Y-%m-%d")
+                    ret_str = ret_date.strftime("%Y-%m-%d")
+                    stay = (ret_date - depart_date).days
+                    lines.append(f"### {dep_str} -> {ret_str} ({stay} days)")
+                    for f in flights_list:
+                        lines.append(f"- {format_flight(f)}")
+                    lines.append("")
 
         except Exception as e:
             print(f"MCP Tool Error for {depart_date} -> {ret_date}: {type(e).__name__} - {e}", file=sys.stderr)
-            err_msg = f"Error for {depart_date.strftime('%Y-%m-%d')} -> {ret_date.strftime('%Y-%m-%d')}: {type(e).__name__}"
-            if err_msg not in error_messages:
-                error_messages.append(err_msg)
+            err_msg = f"{depart_date.strftime('%Y-%m-%d')} -> {ret_date.strftime('%Y-%m-%d')}: {type(e).__name__}"
+            if err_msg not in errors:
+                errors.append(err_msg)
 
     print("MCP Tool: Range search complete.", file=sys.stderr)
 
-    results_key = "cheapest_option_per_date_pair" if return_cheapest_only else "all_round_trip_options"
-    return json.dumps({
-        "search_parameters": {
-            "origin": origin, "destination": destination,
-            "start_date": start_date_str, "end_date": end_date_str,
-            "min_stay_days": min_stay_days, "max_stay_days": max_stay_days,
-            "adults": adults, "seat_type": seat_type,
-            "return_cheapest_only": return_cheapest_only,
-        },
-        results_key: results_data,
-        "errors_encountered": error_messages if error_messages else None,
-    }, indent=2)
+    lines.append(f"*Searched {total_combinations} date combination(s), {adults} adult(s), {seat_type}*")
+    if errors:
+        lines.append(f"\n**Errors:** {len(errors)} date pair(s) failed")
+    return "\n".join(lines)
 
 
 if __name__ == "__main__":
