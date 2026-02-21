@@ -51,8 +51,8 @@ def format_segment(seg):
     date_str = dep_date if dep_date == arr_date else f"{dep_date} - {arr_date}"
     duration = seg.duration if seg.duration is not None else "?"
     plane = seg.plane_type or "unknown"
-    from_code = seg.from_airport.code if seg.from_airport else "?"
-    to_code = seg.to_airport.code if seg.to_airport else "?"
+    from_code = (seg.from_airport.code or seg.from_airport.name or "?") if seg.from_airport else "?"
+    to_code = (seg.to_airport.code or seg.to_airport.name or "?") if seg.to_airport else "?"
     return f"{from_code} {dep} -> {to_code} {arr} ({date_str}, {duration}min, {plane})"
 
 
@@ -69,6 +69,8 @@ def format_flight(f):
 
 
 def map_seat_type(seat_type: str) -> str:
+    if not seat_type:
+        return "economy"
     mapping = {
         "economy": "economy",
         "business": "business",
