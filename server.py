@@ -88,6 +88,7 @@ async def get_flights_on_date(
 ) -> str:
     """
     Fetches available one-way flights for a specific date between two airports.
+    Prices shown are one-way fares per person.
     Can optionally return only the cheapest flight found.
 
     Args:
@@ -120,7 +121,7 @@ async def get_flights_on_date(
                 if priced:
                     flights_list = [min(priced, key=lambda fl: fl.price)]
 
-            lines = [f"## {len(flights_list)} Flights: {origin} -> {destination} on {date}"]
+            lines = [f"## {len(flights_list)} One-Way Flights: {origin} -> {destination} on {date}"]
             for i, f in enumerate(flights_list, 1):
                 lines.append(f"{i}. {format_flight(f)}")
             return "\n".join(lines)
@@ -146,6 +147,7 @@ async def get_round_trip_flights(
 ) -> str:
     """
     Fetches available round-trip flights for specific departure and return dates.
+    Prices shown are total round-trip fares per person.
     Can optionally return only the cheapest flight found.
 
     Args:
@@ -183,7 +185,7 @@ async def get_round_trip_flights(
                 if priced:
                     flights_list = [min(priced, key=lambda fl: fl.price)]
 
-            lines = [f"## {len(flights_list)} Round Trip Flights: {origin} <-> {destination}", f"Depart: {departure_date} | Return: {return_date}"]
+            lines = [f"## {len(flights_list)} Round-Trip Flights: {origin} <-> {destination} (prices are round-trip)", f"Depart: {departure_date} | Return: {return_date}"]
             for i, f in enumerate(flights_list, 1):
                 lines.append(f"{i}. {format_flight(f)}")
             return "\n".join(lines)
@@ -211,6 +213,7 @@ async def find_all_flights_in_range(
 ) -> str:
     """
     Finds available round-trip flights within a specified date range.
+    Prices shown are total round-trip fares per person.
     Can optionally return only the cheapest flight found for each date pair.
 
     Args:
@@ -260,7 +263,7 @@ async def find_all_flights_in_range(
     total_combinations = len(date_pairs_to_check)
     print(f"MCP Tool: Checking {total_combinations} date combinations...", file=sys.stderr)
 
-    lines = [f"## Flight Search: {origin} <-> {destination}", f"**Range:** {start_date_str} to {end_date_str}", ""]
+    lines = [f"## Round-Trip Flight Search: {origin} <-> {destination} (prices are round-trip)", f"**Range:** {start_date_str} to {end_date_str}", ""]
     errors = []
 
     for count, (depart_date, ret_date) in enumerate(date_pairs_to_check, 1):
