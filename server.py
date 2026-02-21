@@ -60,7 +60,7 @@ def format_flight(f):
     airlines = ", ".join(f.airlines) if f.airlines else (f.type or "Unknown")
     price = f"${f.price}" if f.price is not None else "Price N/A"
     lines = [f"**{price}** - {airlines}"]
-    for seg in f.flights:
+    for seg in (f.flights or []):
         lines.append(f"  - {format_segment(seg)}")
     if f.carbon and f.carbon.emission is not None:
         emission_kg = round(f.carbon.emission / 1000, 1)
@@ -119,8 +119,9 @@ async def get_flights_on_date(
                 return f"No flights found for {origin} -> {destination} on {date}."
 
             if return_cheapest_only:
-                cheapest = min(flights_list, key=lambda f: f.price)
-                flights_list = [cheapest]
+                priced = [fl for fl in flights_list if fl.price is not None]
+                if priced:
+                    flights_list = [min(priced, key=lambda fl: fl.price)]
 
             lines = [f"## Flights: {origin} -> {destination} on {date}", ""]
             for f in flights_list:
@@ -183,8 +184,9 @@ async def get_round_trip_flights(
                 return f"No round-trip flights found for {origin} <-> {destination}."
 
             if return_cheapest_only:
-                cheapest = min(flights_list, key=lambda f: f.price)
-                flights_list = [cheapest]
+                priced = [fl for fl in flights_list if fl.price is not None]
+                if priced:
+                    flights_list = [min(priced, key=lambda fl: fl.price)]
 
             lines = [f"## Round Trip: {origin} <-> {destination}", f"**Depart:** {departure_date} | **Return:** {return_date}", ""]
             for f in flights_list:
@@ -288,8 +290,9 @@ async def find_all_flights_in_range(
                 flights_list = list(result)
                 if flights_list:
                     if return_cheapest_only:
-                        cheapest = min(flights_list, key=lambda f: f.price)
-                        flights_list = [cheapest]
+                        priced = [fl for fl in flights_list if fl.price is not None]
+                        if priced:
+                            flights_list = [min(priced, key=lambda fl: fl.price)]
 
                     dep_str = depart_date.strftime("%Y-%m-%d")
                     ret_str = ret_date.strftime("%Y-%m-%d")
