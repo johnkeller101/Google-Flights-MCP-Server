@@ -25,7 +25,8 @@ def single_flight_to_dict(sf):
 def format_datetime(sdt):
     """Formats a SimpleDatetime as a readable string."""
     date_part = f"{sdt.date[0]:04d}-{sdt.date[1]:02d}-{sdt.date[2]:02d}"
-    time_part = f"{sdt.time[0]:02d}:{sdt.time[1]:02d}"
+    minutes = sdt.time[1] if len(sdt.time) > 1 else 0
+    time_part = f"{sdt.time[0]:02d}:{minutes:02d}"
     return f"{date_part} {time_part}"
 
 
