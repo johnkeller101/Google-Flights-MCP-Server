@@ -55,12 +55,19 @@ def format_flight(f):
     airlines = ", ".join(f.airlines) if f.airlines else (f.type or "Unknown")
     price = f"${f.price}" if f.price is not None else "N/A"
     segments = (f.flights or [])
-    route = " / ".join(format_segment(seg) for seg in segments)
     stops = len(segments) - 1
     stop_str = "nonstop" if stops <= 0 else f"{stops} stop"
     duration = segments[0].duration if len(segments) == 1 and segments[0].duration else None
-    dur_str = f", {duration}min" if duration else ""
-    return f"**{price}** {airlines} | {route} ({stop_str}{dur_str})"
+    dur_str = f" {duration}min" if duration else ""
+
+    parts = [f"{price} {airlines} {stop_str}{dur_str}"]
+    for seg in segments:
+        dep = format_datetime(seg.departure)
+        arr = format_datetime(seg.arrival)
+        from_code = (seg.from_airport.code or "?") if seg.from_airport else "?"
+        to_code = (seg.to_airport.code or "?") if seg.to_airport else "?"
+        parts.append(f"  {from_code} {dep} -> {to_code} {arr}")
+    return "\n".join(parts)
 
 
 def map_seat_type(seat_type: str) -> str:
@@ -125,8 +132,8 @@ async def get_flights_on_date(
                 if priced:
                     flights_list = [min(priced, key=lambda fl: fl.price)]
 
-            pax = f" for {adults} passenger{'s' if adults > 1 else ''}" if adults > 1 else ""
-            lines = [f"## {len(flights_list)} One-Way Flights: {origin} -> {destination} on {date} (prices are total{pax})"]
+            pax = f" for {adults} passengers" if adults > 1 else ""
+            lines = [f"ONE-WAY FLIGHTS: {origin} -> {destination} on {date}", f"Total prices{pax}, {len(flights_list)} results", ""]
             for i, f in enumerate(flights_list, 1):
                 lines.append(f"{i}. {format_flight(f)}")
             print(f"FLIGHTS MCP: Returning {len(flights_list)} formatted flights", file=sys.stderr)
@@ -195,8 +202,8 @@ async def get_round_trip_flights(
                 if priced:
                     flights_list = [min(priced, key=lambda fl: fl.price)]
 
-            pax = f" for {adults} passenger{'s' if adults > 1 else ''}" if adults > 1 else ""
-            lines = [f"## {len(flights_list)} Round-Trip Flights: {origin} <-> {destination} (prices are total round-trip{pax})", f"Depart: {departure_date} | Return: {return_date}"]
+            pax = f" for {adults} passengers" if adults > 1 else ""
+            lines = [f"ROUND-TRIP FLIGHTS: {origin} <-> {destination}", f"Depart: {departure_date}, Return: {return_date}", f"Total round-trip prices{pax}, {len(flights_list)} results", ""]
             for i, f in enumerate(flights_list, 1):
                 lines.append(f"{i}. {format_flight(f)}")
             print(f"FLIGHTS MCP: Returning {len(flights_list)} formatted round-trip flights", file=sys.stderr)
@@ -276,8 +283,8 @@ async def find_all_flights_in_range(
     total_combinations = len(date_pairs_to_check)
     print(f"MCP Tool: Checking {total_combinations} date combinations...", file=sys.stderr)
 
-    pax = f" for {adults} passenger{'s' if adults > 1 else ''}" if adults > 1 else ""
-    lines = [f"## Round-Trip Flight Search: {origin} <-> {destination} (prices are total round-trip{pax})", f"**Range:** {start_date_str} to {end_date_str}", ""]
+    pax = f" for {adults} passengers" if adults > 1 else ""
+    lines = [f"ROUND-TRIP FLIGHT SEARCH: {origin} <-> {destination}", f"Range: {start_date_str} to {end_date_str}", f"Total round-trip prices{pax}", ""]
     errors = []
 
     for count, (depart_date, ret_date) in enumerate(date_pairs_to_check, 1):
@@ -308,9 +315,9 @@ async def find_all_flights_in_range(
                     dep_str = depart_date.strftime("%Y-%m-%d")
                     ret_str = ret_date.strftime("%Y-%m-%d")
                     stay = (ret_date - depart_date).days
-                    lines.append(f"### {dep_str} -> {ret_str} ({stay} days)")
+                    lines.append(f"{dep_str} -> {ret_str} ({stay} days)")
                     for f in flights_list:
-                        lines.append(f"- {format_flight(f)}")
+                        lines.append(f"  {format_flight(f)}")
                     lines.append("")
 
         except Exception as e:
@@ -321,9 +328,9 @@ async def find_all_flights_in_range(
 
     print("MCP Tool: Range search complete.", file=sys.stderr)
 
-    lines.append(f"*Searched {total_combinations} date combination(s), {adults} adult(s), {seat_type}*")
+    lines.append(f"Searched {total_combinations} date combinations, {adults} adults, {seat_type}")
     if errors:
-        lines.append(f"\n**Errors:** {len(errors)} date pair(s) failed")
+        lines.append(f"Errors: {len(errors)} date pairs failed")
     return "\n".join(lines)
 
 

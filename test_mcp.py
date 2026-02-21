@@ -94,12 +94,19 @@ def format_flight(f):
     airlines = ", ".join(f.airlines) if f.airlines else (f.type or "Unknown")
     price = f"${f.price}" if f.price is not None else "N/A"
     segments = (f.flights or [])
-    route = " / ".join(format_segment(seg) for seg in segments)
     stops = len(segments) - 1
     stop_str = "nonstop" if stops <= 0 else f"{stops} stop"
     duration = segments[0].duration if len(segments) == 1 and segments[0].duration else None
-    dur_str = f", {duration}min" if duration else ""
-    return f"**{price}** {airlines} | {route} ({stop_str}{dur_str})"
+    dur_str = f" {duration}min" if duration else ""
+
+    parts = [f"{price} {airlines} {stop_str}{dur_str}"]
+    for seg in segments:
+        dep = format_datetime(seg.departure)
+        arr = format_datetime(seg.arrival)
+        from_code = (seg.from_airport.code or "?") if seg.from_airport else "?"
+        to_code = (seg.to_airport.code or "?") if seg.to_airport else "?"
+        parts.append(f"  {from_code} {dep} -> {to_code} {arr}")
+    return "\n".join(parts)
 
 
 def test_one_way(origin, destination, date, adults, seat, max_stops):
@@ -144,8 +151,9 @@ def test_one_way(origin, destination, date, adults, seat, max_stops):
     print(f"\n{'='*60}")
     print(f"  MCP FORMATTED OUTPUT")
     print(f"{'='*60}")
-    header = f"## {len(flights_list)} One-Way Flights: {origin} -> {destination} on {date} (prices are total{pax})"
-    print(header)
+    print(f"ONE-WAY FLIGHTS: {origin} -> {destination} on {date}")
+    print(f"Total prices{pax}, {len(flights_list)} results")
+    print()
     for i, f in enumerate(flights_list, 1):
         formatted = format_flight(f)
         print(f"{i}. {formatted}")
@@ -209,9 +217,10 @@ def test_round_trip(origin, destination, dep_date, ret_date, adults, seat, max_s
     print(f"\n{'='*60}")
     print(f"  MCP FORMATTED OUTPUT")
     print(f"{'='*60}")
-    header = f"## {len(flights_list)} Round-Trip Flights: {origin} <-> {destination} (prices are total round-trip{pax})"
-    print(header)
-    print(f"Depart: {dep_date} | Return: {ret_date}")
+    print(f"ROUND-TRIP FLIGHTS: {origin} <-> {destination}")
+    print(f"Depart: {dep_date}, Return: {ret_date}")
+    print(f"Total round-trip prices{pax}, {len(flights_list)} results")
+    print()
     for i, f in enumerate(flights_list, 1):
         formatted = format_flight(f)
         print(f"{i}. {formatted}")
